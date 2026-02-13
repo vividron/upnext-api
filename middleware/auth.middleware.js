@@ -1,5 +1,4 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
 
 export const protect = async (req, res, next) => {
 
@@ -10,19 +9,7 @@ export const protect = async (req, res, next) => {
             const token = req.headers.authorization.split(' ')[1];
             const decode = jwt.verify(token, process.env.JWT_SECRET);
 
-            const user = await User.findById(decode.id);
-
-            if (!user) {
-                return res.status(401).json({
-                    success: false,
-                    error: {
-                        code: "USER_NOT_FOUND",
-                        message: "User not found"
-                    },
-                    statusCode: 401
-                });
-            }
-            req.user = user;
+            req.userId = decode.userId;
             next();
         }
         catch (err) {
