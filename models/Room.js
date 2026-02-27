@@ -1,11 +1,6 @@
 import mongoose from "mongoose";
 
 const roomShema = new mongoose.Schema({
-    roomCode: {
-        type: String,
-        unique: true,
-        required: true
-    },
     host: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -19,11 +14,15 @@ const roomShema = new mongoose.Schema({
 
     currentSong: {
         type: String,
-        required: true
+        default: null
     },
+    
     isActive: {
-        type: Boolean
+        type: Boolean,
+        default: false
     },
+}, {
+    timestamps: true
 });
 
 export default mongoose.model("Room", roomShema);
