@@ -12,11 +12,36 @@ const roomShema = new mongoose.Schema({
         required: true
     },
 
-    currentSong: {
-        type: String,
-        default: null
+    playerState: {
+        song: {
+            id: {
+                type: String,
+                default: null
+            },
+            name: {
+                type: String,
+                default: null
+            },
+            artists: [String],
+            image: {
+                type: String,
+                default: null
+            },
+            duration: {
+                type: Number,
+                default: null
+            }
+        },
+        isPlaying: {
+            type: Boolean,
+            default: false
+        },
+        position: {
+            type: Number,
+            default: 0
+        }
     },
-    
+
     isActive: {
         type: Boolean,
         default: false
