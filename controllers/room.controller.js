@@ -18,6 +18,24 @@ export const createRoom = asyncWrapper(async (req, res) => {
     });
 });
 
+export const getRooms = asyncWrapper(async (req, res) => {
+    const rooms = await Room.find({ host: req.userId }, "title createdAt");
+
+    if (rooms.length === 0) {
+        return res.status(200).json({
+            success: true,
+            message: "No rooms found",
+            rooms: []
+        });
+    }
+
+    res.status(200).json({
+        success: true,
+        rooms
+    });
+
+})
+
 export const deleteRoom = asyncWrapper(async (req, res) => {
     const { roomId } = req.params;
 

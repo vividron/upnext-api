@@ -1,13 +1,17 @@
 import express from "express";
 import {
     createRoom,
-    deleteRoom
+    deleteRoom,
+    getRooms
 } from '../controllers/room.controller.js'
 import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.post('/create', protect, createRoom);
-router.delete('/:roomId', protect, deleteRoom);
+router.use(protect);
+
+router.post('/create', createRoom);
+router.get('/', getRooms);
+router.delete('/:roomId', deleteRoom);
 
 export default router;
