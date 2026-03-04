@@ -1,6 +1,8 @@
 import redis from "../../config/redis.js";
 import Room from "../../models/Room.js";
 import { getIO } from "../socket.gateway.js";
+import { getQueue } from "./queue.service.js";
+import Queue from "../../models/Queue.js"
 
 export const addUsertoRoom = async (socketId, roomId, userId) => {
 
@@ -24,10 +26,42 @@ export const addUsertoRoom = async (socketId, roomId, userId) => {
             await Room.findByIdAndUpdate(roomId, {
                 isActive: true
             });
+            const queue = await Queue.findOne({ roomId });
+
+            // sepearate score and songs for multi upload in redis sorted set [{score, song}]
+            const songs = [];
+            if (queue && queue?.songs.length > 0) {
+                queue.songs.forEach((song) => {
+                    songs.push(
+                        song.score,
+                        JSON.stringify({
+                            songId: song.songId,
+                            artists: song.artists,
+                            coverImage: song.coverImage,
+                            name: song.name,
+                            duration: song.duration
+                        })
+                    );
+                });
+                // Save queue state to redis
+                redis.zadd(`room:${roomId}:queue`, songs);
+            }
 
             // Add room state to redis
-            await redis.set(`room:${roomId}:hostId`, hostId);
-            await redis.set(`room:${roomId}:playerState`, JSON.stringify(room.playerState));
+            await Promise.all([
+                redis.set(`room:${roomId}:hostId`, hostId),
+                redis.set(`room:${roomId}:playerState`, JSON.stringify(room.playerState)),
+                redis.sadd(`room:${roomId}:members`, userId),
+                redis.sadd(`room:${roomId}:userSockets:${userId}`, socketId),
+                redis.set(`socket:${socketId}`, JSON.stringify({ roomId, userId }))
+            ]);
+
+            return {
+                isHost,
+                memberCount: 1,
+                queue: queue?.songs ?? [],
+                playerState: room.playerState
+            }
         }
         else {
             throw new Error("Room is not active")
@@ -43,7 +77,7 @@ export const addUsertoRoom = async (socketId, roomId, userId) => {
 
     const [memberCount, queue, playerState] = await Promise.all([
         redis.scard(`room:${roomId}:members`),
-        redis.zrevrange(`room:${roomId}:queue`, 0, -1, "WITHSCORES"),
+        getQueue(roomId),
         redis.get(`room:${roomId}:playerState`)
     ]);
 
@@ -67,12 +101,7 @@ export const removeUserFromRoom = async (roomId, userId) => {
         // Get room state from Redis
         const [playerState, queue] = await Promise.all([
             redis.get(`room:${roomId}:playerState`),
-            redis.zrevrange(
-                `room:${roomId}:queue`,
-                0,
-                -1,
-                "WITHSCORES"
-            )
+            getQueue(roomId)
         ]);
 
         // Save room state to DB before cleaning the cache.
@@ -81,6 +110,8 @@ export const removeUserFromRoom = async (roomId, userId) => {
             playerState: JSON.parse(playerState),
             isActive: false
         });
+
+        await Queue.findOneAndUpdate({ roomId }, { $set: { songs: queue } });
 
         // Notify listeners session ended
         io.to(roomId).emit("room-ended");
