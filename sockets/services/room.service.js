@@ -1,13 +1,14 @@
-import redis from "../../config/redis.js";
 import Room from "../../models/Room.js";
 import { getIO } from "../socket.gateway.js";
 import { getQueue } from "./queue.service.js";
 import Queue from "../../models/Queue.js"
+import * as redisRoomService from "../../redis/room.redis.js"
+import * as redisSocketService from "../../redis/socket.redis.js"
 
 export const addUsertoRoom = async (socketId, roomId, userId) => {
 
     // Check room cache exist
-    let hostId = await redis.get(`room:${roomId}:hostId`);
+    let hostId = await redisRoomService.getHostId(roomId);
     let isHost = false;
 
     // No cache means first room session. Check if room exist and its status add roomInfo to cache.
@@ -44,16 +45,16 @@ export const addUsertoRoom = async (socketId, roomId, userId) => {
                     );
                 });
                 // Save queue state to redis
-                redis.zadd(`room:${roomId}:queue`, songs);
+                await redisRoomService.setQueue(roomId, songs);
             }
 
             // Add room state to redis
             await Promise.all([
-                redis.set(`room:${roomId}:hostId`, hostId),
-                redis.set(`room:${roomId}:playerState`, JSON.stringify(room.playerState)),
-                redis.sadd(`room:${roomId}:members`, userId),
-                redis.sadd(`room:${roomId}:userSockets:${userId}`, socketId),
-                redis.set(`socket:${socketId}`, JSON.stringify({ roomId, userId }))
+                redisRoomService.setHostId(roomId, hostId),
+                redisRoomService.setPlayerState(roomId, room.playerState),
+                redisRoomService.addMember(roomId, userId),
+                redisSocketService.addSocketToUserSockets(roomId, userId, socketId),
+                redisSocketService.setSocket(roomId, userId, socketId)
             ]);
 
             return {
@@ -70,15 +71,15 @@ export const addUsertoRoom = async (socketId, roomId, userId) => {
     isHost = hostId === userId;
 
     await Promise.all([
-        redis.sadd(`room:${roomId}:members`, userId),
-        redis.sadd(`room:${roomId}:userSockets:${userId}`, socketId),
-        redis.set(`socket:${socketId}`, JSON.stringify({ roomId, userId }))
+        redisRoomService.addMember(roomId, userId),
+        redisSocketService.addSocketToUserSockets(roomId, userId, socketId),
+        redisSocketService.setSocket(roomId, userId, socketId)
     ]);
 
     const [memberCount, queue, playerState] = await Promise.all([
-        redis.scard(`room:${roomId}:members`),
+        redisRoomService.getMembers(roomId),
         getQueue(roomId),
-        redis.get(`room:${roomId}:playerState`)
+        redisRoomService.getPlayerState(roomId)
     ]);
 
     // return currrent room state
@@ -94,13 +95,13 @@ export const removeUserFromRoom = async (roomId, userId) => {
 
     const io = getIO();
 
-    const hostId = await redis.get(`room:${roomId}:hostId`);
+    const hostId = await redisRoomService.getHostId(roomId);
     const isHost = hostId === userId;
 
     if (isHost) {
         // Get room state from Redis
         const [playerState, queue] = await Promise.all([
-            redis.get(`room:${roomId}:playerState`),
+            redisRoomService.getPlayerState(roomId),
             getQueue(roomId)
         ]);
 
@@ -120,6 +121,10 @@ export const removeUserFromRoom = async (roomId, userId) => {
         const sockets = await io.in(roomId).fetchSockets();
 
         for (const socket of sockets) {
+            // remove socket from cache
+            await redisSocketService.removeSocketFromUserSockets(roomId, userId, socket.id);
+            await redisSocketService.deleteSocket(socket.id);
+
             if (socket) {
                 socket.leave(roomId);
                 socket.disconnect(true);
@@ -127,22 +132,17 @@ export const removeUserFromRoom = async (roomId, userId) => {
         }
 
         // Delete all redis cache
-        const keys = await redis.keys(`room:${roomId}:*`);
-
-        if (keys.length) {
-            await redis.del(keys);
-        }
-
+        await redisRoomService.clearRoomKeys(roomId);
         return;
     }
 
     // diconnect all the sockets connected to the room
-    const socketIds = await redis.smembers(`room:${roomId}:userSockets:${userId}`);
+    const socketIds = await redisSocketService.getUserSockets(roomId, userId);
 
     for (const socketId of socketIds) {
         // remove socket from cache
-        await redis.srem(`room:${roomId}:userSockets:${userId}`, socketId);
-        await redis.del(`socket:${socketId}`);
+        await redisSocketService.removeSocketFromUserSockets(roomId, userId, socketId);
+        await redisSocketService.deleteSocket(socketId);
 
         const socket = io.sockets.sockets.get(socketId);
 
@@ -152,8 +152,8 @@ export const removeUserFromRoom = async (roomId, userId) => {
         }
     }
 
-    await redis.srem(`room:${roomId}:members`, userId);
-    const memberCount = await redis.scard(`room:${roomId}:members`);
+    await redisRoomService.removeMember(roomId, userId);
+    const memberCount = await redisRoomService.getMembers(roomId);
 
     io.to(roomId).emit("member-count-update", memberCount);
 }

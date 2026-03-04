@@ -2,6 +2,8 @@ import { socketAuth } from "./middleware/auth.socket.js";
 import registerRoomSocket from "./room.socket.js";
 import { setIO } from "./socket.gateway.js";
 import redis from "../config/redis.js";
+import { deleteSocket, getSocket, getUserSocketCount, removeSocketFromUserSockets } from "../redis/socket.redis.js";
+import { setGraceTime, setReconnectToRoomId } from "../redis/room.redis.js";
 
 export default function initSockets(io) {
 
@@ -16,37 +18,31 @@ export default function initSockets(io) {
         registerRoomSocket(socket);
 
         socket.on("disconnect", async () => {
-            console.log("Socket disconnected:", socket.id);
             try {
-                // Remove socket
-                const data = await redis.get(`socket:${socket.id}`);
+                // Get userId and roomId
+                const data = await getSocket(socket.id);
 
-                // If no data user manually left room. leave-room event removed user from room
+                // If no data user manually left room or leave-room event removed user from room
                 if (!data) return;
 
                 const { roomId, userId } = JSON.parse(data);
 
-                await redis.srem(`room:${roomId}:userSockets:${userId}`, socket.id);
-                await redis.del(`socket:${socket.id}`);
+                await removeSocketFromUserSockets(roomId, userId, socket.id);
+                await deleteSocket(socket.id);
 
-                const remaining = await redis.scard(`room:${roomId}:userSockets:${userId}`);
+                const remaining = await getUserSocketCount(roomId, userId);
 
                 // user still connected elsewhere
                 if (remaining > 0) return;
 
                 // grace time to reconnect
-                await redis.setex(
-                    `room:${roomId}:grace:${userId}`,
-                    20,
-                    true
-                );
+                await setGraceTime(roomId, userId, 20);
+
                 // Add user to reconnect state. handled by presence worker
-                await redis.set(`reconnect:${userId}`, roomId);
+                await setReconnectToRoomId(roomId, userId);
             } catch (error) {
                 console.error("Socket disconnection error", error);
             }
         });
     });
 }
-
-

@@ -1,12 +1,7 @@
-import redis from "../../config/redis.js"
+import { getSortedQueue } from "../../redis/room.redis.js";
 
 export const getQueue = async (roomId) => {
-    const mixArray = await redis.zrevrange(
-        `room:${roomId}:queue`,
-        0,
-        -1,
-        "WITHSCORES"
-    )
+    const mixArray = await getSortedQueue(roomId);
 
     // Combine song and score in one single object in queue array
     const queue = [];

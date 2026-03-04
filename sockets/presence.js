@@ -1,4 +1,6 @@
 import redis from "../config/redis.js";
+import { delReconnectToRoomId, getGraceTime, getReconnectToRoomId } from "../redis/room.redis.js";
+import { getUserSockets } from "../redis/socket.redis.js";
 import { removeUserFromRoom } from "./services/room.service.js";
 
 export const startPresenceWorker = () => {
@@ -10,16 +12,16 @@ export const startPresenceWorker = () => {
       for (const key of keys) {
 
         const userId = key.split(":")[1];
-        const roomId = await redis.get(`reconnect:${userId}`);
-        const grace = await redis.get(`room:${roomId}:grace:${userId}`);
+        const roomId = await getReconnectToRoomId(userId);
+        const grace = await getGraceTime(roomId, userId);
 
         // waiting for socket to reconnect. 10s grace time
         if (grace) continue;
 
         // remove user from reconnect, as the socket may have reconnected or the user will be removed from room
-        await redis.del(`reconnect:${userId}`);
+        await delReconnectToRoomId(userId);
 
-        const sockets = await redis.scard(`room:${roomId}:userSockets:${userId}`);
+        const sockets = await getUserSockets(roomId, userId);
 
         if (sockets > 0) continue;
 

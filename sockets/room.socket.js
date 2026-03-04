@@ -1,4 +1,4 @@
-import redis from "../config/redis.js";
+import { isMember } from "../redis/room.redis.js";
 import { addUsertoRoom, removeUserFromRoom } from "./services/room.service.js";
 
 const registerRoomSocket = async (socket) => {
@@ -17,10 +17,11 @@ const registerRoomSocket = async (socket) => {
             const roomState = await addUsertoRoom(socket.id, roomId, userId);
             socket.join(roomId);
 
-            socket.to(roomId).emit("member-count-update", JSON.parse(roomState.memberCount));
+            socket.to(roomId).emit("member-count-update", roomState.memberCount);
 
             ack({ ok: true, roomState});
         } catch (error) {
+            console.error(error)
             ack({ ok: false, message: error.message });
         }
     });
@@ -31,7 +32,7 @@ const registerRoomSocket = async (socket) => {
             // Get userId from socket auth middleware
             const userId = socket.userId;
 
-            const isUserPresent = await redis.sismember(`room:${roomId}:members`, userId);
+            const isUserPresent = await isMember(roomId, userId);
 
             if(!isUserPresent) ack({ ok: false, message: "User not present in the room" });
 
@@ -39,6 +40,7 @@ const registerRoomSocket = async (socket) => {
             ack({ ok: true });
 
         } catch (error) {
+            console.error(error)
             ack({ ok: false, message: error.message });
         }
     });
