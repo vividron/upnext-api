@@ -29,6 +29,9 @@ const registerRoomSocket = async (socket) => {
     // leave room
     socket.on("leave-room", async ({ roomId }, ack) => {
         try {
+            if (!roomId) {
+                return ack({ ok: false, message: "Invalid room Id" });
+            }
             // Get userId from socket auth middleware
             const userId = socket.userId;
 
