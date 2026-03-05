@@ -1,4 +1,6 @@
 import Room from "../models/Room.js";
+import * as roomService  from "../services/room.service.js";
+import { unSubscribeRoom } from "../sockets/services/room.service.js";
 import asyncWrapper from "../utils/asyncWrapper.js";
 
 export const createRoom = asyncWrapper(async (req, res) => {
@@ -34,6 +36,53 @@ export const getRooms = asyncWrapper(async (req, res) => {
         rooms
     });
 
+})
+
+export const joinRoom = asyncWrapper(async (req, res) => {
+    const { roomId } = req.params;
+    const userId = req.userId;
+
+    const roomState = await roomService.addUsertoRoom(roomId, userId);
+
+    res.status(200).json({
+        success: true,
+        roomState
+    });
+});
+
+export const leaveRoom = asyncWrapper(async (req, res) => {
+    const { roomId } = req.params;
+    const userId = req.userId;
+
+    await roomService.removeUserFromRoom(roomId, userId);
+    await unSubscribeRoom(roomId, userId);
+
+    res.status(200).json({
+        success: true,
+        message: "User left the room successfully"
+    })
+});
+
+export const getRoom = asyncWrapper(async (req, res) => {
+    const {roomId} = req.params;
+    const userId = req.userId;
+
+    const roomState = await roomService.getRoomState(roomId, userId);
+
+    if(!roomState) {
+        return res.status(400).json({
+            success: false,
+            error: {
+                code: "ROOM_NOT_FOUND",
+                message: "Room not found or the room is not active"
+            }
+        })
+    }
+
+    res.status(200).json({
+        success: true,
+        roomState
+    });
 })
 
 export const deleteRoom = asyncWrapper(async (req, res) => {
