@@ -1,9 +1,10 @@
 import redis from "../config/redis.js";
 import { delReconnectToRoomId, getGraceTime, getReconnectToRoomId } from "../redis/room.redis.js";
 import { getUserSocketCount } from "../redis/socket.redis.js";
-import { removeUserFromRoom } from "./services/room.service.js";
+import { removeUserFromRoom } from "../services/room.service.js";
 
 let interval = null;
+let isLastActivity = false;
 
 export const startPresenceCheckWorker = () => {
 
@@ -11,6 +12,7 @@ export const startPresenceCheckWorker = () => {
   if (interval) return;
 
   interval = setInterval(async () => {
+    console.log("worker runnign" + Date.now());
 
     try {
       const keys = await redis.keys("reconnect:*");
@@ -32,6 +34,12 @@ export const startPresenceCheckWorker = () => {
         if (sockets > 0) continue;
 
         await removeUserFromRoom(roomId, userId);
+
+        if (isLastActivity) {
+          clearInterval(interval);
+          interval = null;
+          isLastActivity = false
+        }
       }
     } catch (error) {
       console.error("Presence check error:", error);
@@ -41,8 +49,12 @@ export const startPresenceCheckWorker = () => {
 }
 
 export const stopPresenceCheckWorker = () => {
-  if(interval){
+  if (interval) {
     clearInterval(interval);
     interval = null;
   }
+}
+
+export const setLastActivity = (val) => {
+  isLastActivity = val;
 }
