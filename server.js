@@ -8,6 +8,7 @@ import roomRoutes from './routes/room.route.js'
 import http from "http";
 import { Server } from "socket.io";
 import initSockets from "./sockets/index.js";
+import spotifyRoutes from "./routes/spotify.route.js"
 
 const app = express();
 const server = http.createServer(app);
@@ -38,6 +39,7 @@ app.use(cookieParser());
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/rooms", roomRoutes);
+app.use("/api/spotify", spotifyRoutes);
 
 app.use(errorHandler);
 
