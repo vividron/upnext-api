@@ -1,11 +1,11 @@
-import { addUserSocket } from "./services/room.service.js";
+import { subscribeRoom } from "./services/room.service.js";
 
 const registerRoomSocket = async (socket) => {
 
     // subscribe room
     socket.on("subscribe-room", async ({ roomId }, ack) => {
         try {
-            if (!roomId) {
+            if (!roomId || typeof roomId !== "string" || !roomId.trim()) {
                 return ack({
                     ok: false,
                     error: {
@@ -19,13 +19,9 @@ const registerRoomSocket = async (socket) => {
             const userId = socket.userId;
 
             // Add user socket
-            await addUserSocket(roomId, userId, socket.id);
+            await subscribeRoom(roomId, userId, socket);
 
-            socket.join(roomId);
-
-            socket.to(roomId).emit("member-count-update", 1);
-
-            ack({ ok: true });
+            ack({ ok: true, message: `Subscribed to room:${roomId} successfully`});
         } catch (error) {
             console.error("Failed to subscribe room:", error)
             ack({

@@ -1,5 +1,5 @@
 export const roomKeys = {
-    hostId: (roomId) => `room:${roomId}:hostId`,
+    roomMeta: (roomId) => `room:${roomId}:meta`,
     playerState: (roomId) => `room:${roomId}:playerState`,
     members: (roomId) => `room:${roomId}:members`,
     queue: (roomId) => `room:${roomId}:queue`,

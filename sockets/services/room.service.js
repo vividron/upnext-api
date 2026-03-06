@@ -1,24 +1,40 @@
 import { getIO } from "../socket.gateway.js";
 import * as redisSocketService from "../../redis/socket.redis.js"
 import AppError from "../../utils/appError.js";
-import { getRoomMeta } from "../../redis/room.redis.js";
+import { isMember, getMembers, removeRoomExpiry } from "../../redis/room.redis.js";
+import { resolveRoomRole } from "../../services/room.service.js";
 
-export const addUserSocket = async (roomId, userId, socketId) => {
+export const subscribeRoom = async (roomId, userId, socket) => {
+
     // Check if the user has joined the room
     const isUserPresent = await isMember(roomId, userId);
     if (!isUserPresent) throw new AppError("User did not join the room", "USER_NOT_FOUND");
 
+    const isHost = await resolveRoomRole(roomId, userId);
+
+    // Remove room expiry if host. this helps to verify room status. Ex - host joined but never subscribed => room cache removed
+    if (isHost) {
+        const isRemoved = await removeRoomExpiry(roomId);
+        if (!isRemoved) throw new AppError("User did not join the room", "USER_NOT_FOUND");
+    }
+
     // Add socket
     await Promise.all([
-        redisSocketService.addSocketToUserSockets(roomId, userId, socketId),
-        redisSocketService.setSocket(roomId, userId, socketId)
+        redisSocketService.addSocketToUserSockets(roomId, userId, socket.id),
+        redisSocketService.setSocket(roomId, userId, socket.id)
     ]);
+
+    socket.join(roomId);
+
+    const socketCount = await redisSocketService.getUserSocketCount(roomId, userId);
+
+    if (socketCount === 1) {
+        const memberCount = await getMembers(roomId);
+        socket.to(roomId).emit("member-count-update", memberCount);
+    }
 }
 
-export const unSubscribeRoom = async (roomId, userId) => {
-
-    const hostId = await getRoomMeta(roomId, "hostId");
-    const isHost = hostId === userId;
+export const unSubscribeRoom = async (roomId, userId, isHost) => {
 
     const io = getIO();
 
@@ -60,5 +76,7 @@ export const unSubscribeRoom = async (roomId, userId) => {
         }
     }
 
-    io.to(roomId).emit("member-count-update", -1);
+    const memberCount = await getMembers(roomId);
+
+    io.to(roomId).emit("member-count-update", memberCount);
 }

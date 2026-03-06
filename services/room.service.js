@@ -3,6 +3,7 @@ import { getQueue } from "./queue.service.js";
 import Queue from "../models/Queue.js"
 import * as redisRoomService from "../redis/room.redis.js"
 import AppError from "../utils/appError.js";
+import { unSubscribeRoom } from "../sockets/services/room.service.js";
 
 export const getRoomState = async (roomId, userId) => {
 
@@ -84,6 +85,9 @@ export const addUsertoRoom = async (roomId, userId) => {
                 redisRoomService.addMember(roomId, userId),
             ]);
 
+            // Add expiry to room state. If host don't subscribe the room then room cache will be removed automatically.
+            await redisRoomService.addRoomExpiry(roomId);
+
             return {
                 title: room.title,
                 isHost,
@@ -98,9 +102,23 @@ export const addUsertoRoom = async (roomId, userId) => {
     }
 
     await redisRoomService.addMember(roomId, userId);
+    roomState.memberCount++;
 
     // return currrent room state
     return roomState;
+}
+
+export const resolveRoomRole = async (roomId, userId) => {
+
+    // Check if room exist
+    const exists = await redisRoomService.existsRoomMeta(roomId);
+
+    if (!exists) throw new AppError("Room is not active", "ROOM_INACTIVE", 400);
+
+    const hostId = await redisRoomService.getRoomMeta(roomId, "hostId");
+    const isHost = hostId === userId;
+
+    return isHost
 }
 
 export const removeUserFromRoom = async (roomId, userId) => {
@@ -109,10 +127,9 @@ export const removeUserFromRoom = async (roomId, userId) => {
     const isUserPresent = await redisRoomService.isMember(roomId, userId);
     if (!isUserPresent) throw new AppError("User not present in the room", "USER_NOT_FOUND", 404);
 
-    const hostId = await redisRoomService.getRoomMeta(roomId, "hostId");
-    const isHost = hostId === userId;
+    const isHost = await resolveRoomRole(roomId, userId);
 
-    // If user is host save current room state to DB and end room
+    // If user is host save current room state in DB
     if (isHost) {
         // Get room state from Redis
         const [playerState, queue] = await Promise.all([
@@ -120,7 +137,7 @@ export const removeUserFromRoom = async (roomId, userId) => {
             getQueue(roomId)
         ]);
 
-        // Save room state to DB before cleaning the cache.
+        // Save room state in DB before cleaning the cache.
         await Room.findByIdAndUpdate(roomId, {
             playerState: JSON.parse(playerState),
             isActive: false
@@ -130,10 +147,17 @@ export const removeUserFromRoom = async (roomId, userId) => {
 
         // Delete all redis cache
         await redisRoomService.clearRoomKeys(roomId);
+
+        // unsubscribe the room
+        await unSubscribeRoom(roomId, userId, isHost);
+
         return;
     }
 
     // normal user, remove from members list
     await redisRoomService.removeMember(roomId, userId);
+
+    // unsubscribe the room
+    await unSubscribeRoom(roomId, userId, isHost);
 }
 

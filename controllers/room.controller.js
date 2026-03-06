@@ -1,6 +1,5 @@
 import Room from "../models/Room.js";
 import * as roomService  from "../services/room.service.js";
-import { unSubscribeRoom } from "../sockets/services/room.service.js";
 import asyncWrapper from "../utils/asyncWrapper.js";
 
 export const createRoom = asyncWrapper(async (req, res) => {
@@ -55,7 +54,6 @@ export const leaveRoom = asyncWrapper(async (req, res) => {
     const userId = req.userId;
 
     await roomService.removeUserFromRoom(roomId, userId);
-    await unSubscribeRoom(roomId, userId);
 
     res.status(200).json({
         success: true,
@@ -87,9 +85,10 @@ export const getRoom = asyncWrapper(async (req, res) => {
 
 export const deleteRoom = asyncWrapper(async (req, res) => {
     const { roomId } = req.params;
+    const userId = req.userId;
 
     // Check if the room exist
-    const room = await Room.findById(roomId);
+    const room = await Room.findOne({ _id: roomId, host: userId });
 
     if (!room) {
         return res.status(404).json({
