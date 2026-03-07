@@ -4,5 +4,6 @@ export default class AppError extends Error {
     this.code = code;
     this.status = status;
     this.originalError = originalError;
+    Error.captureStackTrace(this, this.constructor);
   }
 }

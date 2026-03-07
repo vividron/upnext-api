@@ -22,14 +22,6 @@ export const createRoom = asyncWrapper(async (req, res) => {
 export const getRooms = asyncWrapper(async (req, res) => {
     const rooms = await Room.find({ host: req.userId }, "title createdAt");
 
-    if (rooms.length === 0) {
-        return res.status(200).json({
-            success: true,
-            message: "No rooms found",
-            rooms: []
-        });
-    }
-
     res.status(200).json({
         success: true,
         rooms
@@ -68,13 +60,7 @@ export const getRoom = asyncWrapper(async (req, res) => {
     const roomState = await roomService.getRoomState(roomId, userId);
 
     if(!roomState) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                code: "ROOM_NOT_FOUND",
-                message: "Room not found or the room is not active"
-            }
-        })
+        throw new AppError("Room not found or the room is not active", "ROOM_NOT_FOUND", 404);
     }
 
     res.status(200).json({
@@ -87,29 +73,18 @@ export const deleteRoom = asyncWrapper(async (req, res) => {
     const { roomId } = req.params;
     const userId = req.userId;
 
-    // Check if the room exist
     const room = await Room.findOne({ _id: roomId, host: userId });
 
-    if (!room) {
-        return res.status(404).json({
-            success: false,
-            error: {
-                code: "ROOM_NOT_FOUND",
-                message: "Room not found"
-            }
-        });
+    // Check if the room exist
+     if (!room) {
+        throw new AppError("Room not found", "ROOM_NOT_FOUND", 404);
     }
 
     //Check if the room is active
     if (room.isActive) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                code: "ROOM_ACTIVE",
-                message: "Cannot delete active room"
-            }
-        });
+        throw new AppError("Cannot delete active room", "ROOM_ACTIVE", 400);
     }
+
     await room.deleteOne()
 
     res.status(200).json({

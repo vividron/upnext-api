@@ -38,7 +38,7 @@ export const handleSpotifyCallback = asyncWrapper(async (req, res) => {
     const codeVerifier = req.cookies?.code_verifier;
 
     if (state !== storedState || !codeVerifier) {
-        return res.status(400).json({ message: "Invalid OAuth state" });
+        throw new AppError("Invalid OAuth state", "INVALID_OAUTH_STATE", 400);
     }
 
     const tokens = await spotify.validateAuthorizationCode(code, codeVerifier);
@@ -58,7 +58,7 @@ export const handleSpotifyCallback = asyncWrapper(async (req, res) => {
     const isPremium = spotifyUser.product === "premium";
 
     if (!spotifyId) {
-        return res.status(502).json({ message: "Missing spotify user ID" });
+        throw new AppError("Missing spotify user ID", "INVALID_SPOTIFY_ID", 400);
     }
 
     // Find or create user

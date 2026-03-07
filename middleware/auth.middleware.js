@@ -17,33 +17,14 @@ export const protect = async (req, res, next) => {
         }
         catch (err) {
             if (err.name === "TokenExpiredError") {
-                return res.status(401).json({
-                    success: false,
-                    error: {
-                        code: "INVALID_TOKEN",
-                        message: "Token expired"
-                    }
-                });
+                return next(new AppError("Token expired", "INVALID_TOKEN", 401));
             }
 
-            return res.status(401).json({
-                success: false,
-                error: {
-                    code: "INVALID_TOKEN",
-                    message: "Not authorized, invalid token"
-                }
-
-            });
+            return next(new AppError("Not authorized, invalid token", "INVALID_TOKEN", 401));
         }
 
     } else {
-        res.status(401).json({
-            success: false,
-            error: {
-                code: "INVALID_TOKEN",
-                message: "token not found"
-            }
-        });
+        next(new AppError("token not found", "INVALID_TOKEN", 401));
     }
 }
 
@@ -53,13 +34,7 @@ export const validateAccessToken = async (req, res, next) => {
         const user = await User.findById(req.userId);
 
         if (!user) {
-            return res.status(401).json({
-                success: false,
-                error: {
-                    code: "INVALID_USER_ID",
-                    message: "User not found. invalid user Id"
-                }
-            });
+            return next(new AppError("User not found. invalid user Id", "INVALID_USER_ID", 401));
         }
 
         // Check if token expired. refresh 60s before actual expiry 
