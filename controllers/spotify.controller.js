@@ -27,14 +27,4 @@ export const getPlaylistItems = asyncWrapper(async (req, res) => {
     });
 });
 
-export const getPlayBackState = asyncWrapper(async (req, res) => {
-
-    const playbackState = await spotifyService.getPlayBackState(req.accessToken);
-
-    res.status(200).json({
-        success: true,
-        playbackState
-    });
-});
-
 
