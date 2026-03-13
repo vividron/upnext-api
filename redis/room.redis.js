@@ -9,7 +9,7 @@ export const existsRoomMeta = (roomId) => redis.exists(roomKeys.roomMeta(roomId)
 
 // player state
 export const setPlayerState = (roomId, playerState) => redis.set(roomKeys.playerState(roomId), JSON.stringify(playerState));
-export const getPlayerState = (roomId) => redis.get(roomKeys.playerState(roomId));
+export const getPlayerState = (roomId) => redis.get(roomKeys.playerState(roomId)).then((data) => data ? JSON.parse(data) : null);
 
 
 // Members
@@ -19,8 +19,10 @@ export const getMembers = (roomId) => redis.scard(roomKeys.members(roomId));
 export const isMember = (roomId, userId) => redis.sismember(roomKeys.members(roomId), userId)
 
 // queue
-export const getSortedQueue = (roomId) => redis.zrevrange(roomKeys.queue(roomId), 0, -1, "WITHSCORES");
 export const setQueue = (roomId, songs) => redis.zadd(roomKeys.queue(roomId), songs);
+export const getSortedQueue = (roomId) => redis.zrevrange(roomKeys.queue(roomId), 0, -1, "WITHSCORES"); // Score highest -> lowest
+export const getQueueMaxScoreSong = (roomId) => redis.zrevrange(roomKeys.queue(roomId), 0, 0, "WITHSCORES");
+export const removeSongFromQueue = (roomId, song) => redis.zrem(roomKeys.queue(roomId), JSON.stringify(song));
 
 // User reconnect
 export const setGraceTime = (roomId, userId, expiryTime) => redis.setex(roomKeys.graceTime(roomId, userId), expiryTime, true);

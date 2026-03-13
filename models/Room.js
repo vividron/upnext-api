@@ -14,7 +14,7 @@ const roomShema = new mongoose.Schema({
 
     playerState: {
         song: {
-            id: {
+            songId: {
                 type: String,
                 default: null
             },
@@ -23,7 +23,7 @@ const roomShema = new mongoose.Schema({
                 default: null
             },
             artists: [String],
-            image: {
+            coverImage: {
                 type: String,
                 default: null
             },

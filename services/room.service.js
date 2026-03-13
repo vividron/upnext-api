@@ -26,7 +26,7 @@ export const getRoomState = async (roomId, userId) => {
         isHost,
         memberCount,
         queue,
-        playerState: JSON.parse(playerState)
+        playerState
     }
 }
 
@@ -137,15 +137,23 @@ export const removeUserFromRoom = async (roomId, userId) => {
             getQueue(roomId)
         ]);
 
+        //if player was playing update position. current position = position of seek bar when started playing + time passed
+        if (playerState.isPlaying) {
+            const currPosition = playerState.position + (Date.now() - playerState.startedAt);
+            playerState.position = currPosition;
+            playerState.startedAt = null;
+            playerState.isPlaying = false;
+        }
+
         // Save room state in DB before cleaning the cache.
         await Room.findByIdAndUpdate(roomId, {
-            playerState: JSON.parse(playerState),
+            playerState: playerState,
             isActive: false
         });
 
         await Queue.findOneAndUpdate({ roomId }, { $set: { songs: queue } });
 
-        // Delete all redis cache
+        // Delete all room cache
         await redisRoomService.clearRoomKeys(roomId);
 
         // unsubscribe the room
