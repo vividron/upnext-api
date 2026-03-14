@@ -1,7 +1,7 @@
-import { subscribeRoom } from "./services/room.service.js";
+import { subscribeRoom } from "../services/room.service.js";
 import { EVENTS } from "./socket.events.js";
 
-const registerRoomSocket = async (socket) => {
+const registerRoomSocket = (socket) => {
 
     // subscribe room
     socket.on(EVENTS.ROOM_SUBSCRIBE, async ({ roomId }, ack) => {
