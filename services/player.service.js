@@ -1,6 +1,6 @@
 import * as spotifyService from "../services/spotify.service.js";
 import AppError from "../utils/appError.js";
-import { getPlayerState, getQueueMaxScoreSong, removeSongFromQueue, setPlayerState } from "../redis/room.redis.js";
+import { getPlayerState, getQueueMaxScoreSong, getSongMeta, removeSongFromQueue, setPlayerState } from "../redis/room.redis.js";
 import { getIO } from "../sockets/socket.gateway.js";
 
 // Get playback current state
@@ -63,22 +63,25 @@ export const playNext = async (accessToken, roomId) => {
 
     const io = getIO();
 
-    // Get top song from the queue
+    // Get top song from the queue. [songId, score]
     const maxScoreSong = await getQueueMaxScoreSong(roomId);
 
     // Check if queue is empty
     if(maxScoreSong.length === 0) throw new AppError("Can't perform this action. Queue is empty", "EMPTY_QUEUE", 403);
 
-    const song = JSON.parse(maxScoreSong[0]);
+    const songId = maxScoreSong[0];
 
-    await spotifyService.playTrack(accessToken, song.songId, 0);
+    await spotifyService.playTrack(accessToken, songId, 0);
 
-    io.to(roomId).emit("next-song", { songId: song.songId });
+    io.to(roomId).emit("next-song", { songId });
 
     // remove song from the queue
-    console.log(await removeSongFromQueue(roomId, song));
+    await removeSongFromQueue(roomId, songId);
 
-    await setPlayerState(roomId, { song, position: 0, isPlaying: true, startedAt: Date.now() });
+    // Get song metadata
+    const songMetaData = await getSongMeta(roomId, songId);
+
+    await setPlayerState(roomId, { song: songMetaData, position: 0, isPlaying: true, startedAt: Date.now() });
 }
 
 // TODO - play previous song from recently played set

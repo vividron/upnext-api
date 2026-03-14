@@ -62,18 +62,19 @@ export const addUsertoRoom = async (roomId, userId) => {
             // sepearate score and songs for multi upload in redis sorted set [{score, song}]
             const songs = [];
             if (queue && queue?.songs.length > 0) {
-                queue.songs.forEach((song) => {
-                    songs.push(
-                        song.score,
-                        JSON.stringify({
-                            songId: song.songId,
-                            artists: song.artists,
-                            coverImage: song.coverImage,
-                            name: song.name,
-                            duration: song.duration
-                        })
-                    );
-                });
+                for (const song of queue.songs) {
+
+                    songs.push(song.score, song.songId);
+
+                    // hash song meta data
+                    await redisRoomService.setSongMeta(roomId, song.songId, {
+                        songId: song.songId,
+                        artists: song.artists,
+                        coverImage: song.coverImage,
+                        name: song.name,
+                        duration: song.duration
+                    });
+                }
                 // Save queue state to redis
                 await redisRoomService.setQueue(roomId, songs);
             }

@@ -19,10 +19,17 @@ export const getMembers = (roomId) => redis.scard(roomKeys.members(roomId));
 export const isMember = (roomId, userId) => redis.sismember(roomKeys.members(roomId), userId)
 
 // queue
-export const setQueue = (roomId, songs) => redis.zadd(roomKeys.queue(roomId), songs);
+export const setQueue = (roomId, songIdsWithScore) => redis.zadd(roomKeys.queue(roomId), songIdsWithScore);
 export const getSortedQueue = (roomId) => redis.zrevrange(roomKeys.queue(roomId), 0, -1, "WITHSCORES"); // Score highest -> lowest
 export const getQueueMaxScoreSong = (roomId) => redis.zrevrange(roomKeys.queue(roomId), 0, 0, "WITHSCORES");
-export const removeSongFromQueue = (roomId, song) => redis.zrem(roomKeys.queue(roomId), JSON.stringify(song));
+export const removeSongFromQueue = (roomId, songId) => redis.zrem(roomKeys.queue(roomId), songId);
+export const getQueueScores = (roomId, songIds) => redis.zmscore(roomKeys.queue(roomId), songIds);
+export const getQueueSongCount = (roomId) => redis.zcard(roomKeys.queue(roomId));
+export const clearQueue = (roomId) => redis.del(roomKeys.queue(roomId));
+
+// song meta data
+export const setSongMeta = (roomId, songId, songMetaData) => redis.hset(roomKeys.songMeta(roomId, songId), songMetaData);
+export const getSongMeta = (roomId, songId) => redis.hgetall(roomKeys.songMeta(roomId, songId));
 
 // User reconnect
 export const setGraceTime = (roomId, userId, expiryTime) => redis.setex(roomKeys.graceTime(roomId, userId), expiryTime, true);

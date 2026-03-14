@@ -3,6 +3,7 @@ export const roomKeys = {
     playerState: (roomId) => `room:${roomId}:playerState`,
     members: (roomId) => `room:${roomId}:members`,
     queue: (roomId) => `room:${roomId}:queue`,
+    songMeta: (roomId, songId) => `room:${roomId}:song:${songId}`,
     graceTime: (roomId, userId) => `room:${roomId}:grace:${userId}`,
     reconnect: (userId) => `reconnect:${userId}`
 };
