@@ -10,6 +10,7 @@ import { Server } from "socket.io";
 import initSockets from "./sockets/index.js";
 import spotifyRoutes from "./routes/spotify.route.js";
 import playerRoutes from "./routes/player.route.js";
+import queueRoutes from "./routes/queue.route.js"
 
 const app = express();
 const server = http.createServer(app);
@@ -42,6 +43,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/spotify", spotifyRoutes);
 app.use("/api/rooms/:roomId/player", playerRoutes);
+app.use("/api/rooms/:roomId/queue", queueRoutes);
 
 app.use(errorHandler);
 
