@@ -2,6 +2,7 @@ import * as spotifyService from "../services/spotify.service.js";
 import AppError from "../utils/appError.js";
 import { getPlayerState, getQueueMaxScoreSong, getSongMeta, removeSongFromQueue, setPlayerState } from "../redis/room.redis.js";
 import { getIO } from "../sockets/socket.gateway.js";
+import { EVENTS } from "../sockets/socket.events.js";
 
 // Get playback current state
 export const getPlayBackState = async (accessToken) => {
@@ -10,8 +11,6 @@ export const getPlayBackState = async (accessToken) => {
 
 // resume player
 export const resumePlayer = async (accessToken, roomId) => {
-
-    const io = getIO();
 
     // Get player state from redis 
     const playerState = await getPlayerState(roomId);
@@ -26,7 +25,7 @@ export const resumePlayer = async (accessToken, roomId) => {
 
     await spotifyService.playTrack(accessToken, currentSongId, position);
 
-    io.to(roomId).emit("player-resumed");
+    getIO().to(roomId).emit(EVENTS.PLAYER_RESUME);
 
     playerState.startedAt = Date.now();
     playerState.isPlaying = true;
@@ -37,8 +36,6 @@ export const resumePlayer = async (accessToken, roomId) => {
 // pause player
 export const pausePlayer = async (accessToken, roomId) => {
 
-    const io = getIO();
-
     // Get player state
     const playerState = await getPlayerState(roomId);
 
@@ -46,7 +43,7 @@ export const pausePlayer = async (accessToken, roomId) => {
 
     await spotifyService.pausePlayer(accessToken);
 
-    io.to(roomId).emit("player-paused");
+    getIO().to(roomId).emit(EVENTS.PLAYER_PAUSE);
 
     // update position. current position = position of seek bar when started playing + time passed
     const currPosition = playerState.position + (Date.now() - playerState.startedAt);
@@ -61,8 +58,6 @@ export const pausePlayer = async (accessToken, roomId) => {
 // play next song from queue
 export const playNext = async (accessToken, roomId) => {
 
-    const io = getIO();
-
     // Get top song from the queue. [songId, score]
     const maxScoreSong = await getQueueMaxScoreSong(roomId);
 
@@ -73,7 +68,7 @@ export const playNext = async (accessToken, roomId) => {
 
     await spotifyService.playTrack(accessToken, songId, 0);
 
-    io.to(roomId).emit("next-song", { songId });
+    getIO().to(roomId).emit(EVENTS.PLAYER_NEXT, { songId });
 
     // remove song from the queue
     await removeSongFromQueue(roomId, songId);
@@ -92,13 +87,12 @@ export const playPrevious = async (accessToken) => {
 // seek to position
 export const seekToPosition = async (accessToken, roomId, positionMs) => {
 
-    const io = getIO();
     const playerState = await getPlayerState(roomId);
 
     await spotifyService.seekToPosition(accessToken, positionMs);
 
     // Broadcast the updated playback position to all clients in the room
-    io.to(roomId).emit("seekbar-update", { positionMs });
+    getIO().to(roomId).emit(EVENTS.PLAYER_SEEK, { positionMs });
 
     playerState.position = positionMs;
     if (playerState.isPlaying) playerState.startedAt = Date.now();

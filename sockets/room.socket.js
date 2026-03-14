@@ -1,9 +1,10 @@
 import { subscribeRoom } from "./services/room.service.js";
+import { EVENTS } from "./socket.events.js";
 
 const registerRoomSocket = async (socket) => {
 
     // subscribe room
-    socket.on("subscribe-room", async ({ roomId }, ack) => {
+    socket.on(EVENTS.ROOM_SUBSCRIBE, async ({ roomId }, ack) => {
         try {
             if (!roomId || typeof roomId !== "string" || !roomId.trim()) {
                 return ack({

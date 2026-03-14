@@ -3,6 +3,7 @@ import * as redisSocketService from "../../redis/socket.redis.js"
 import AppError from "../../utils/appError.js";
 import { isMember, getMembers, removeRoomExpiry } from "../../redis/room.redis.js";
 import { resolveRoomRole } from "../../services/room.service.js";
+import { EVENTS } from "../socket.events.js";
 
 export const subscribeRoom = async (roomId, userId, socket) => {
 
@@ -30,18 +31,16 @@ export const subscribeRoom = async (roomId, userId, socket) => {
 
     if (socketCount === 1) {
         const memberCount = await getMembers(roomId);
-        socket.to(roomId).emit("member-count-update", memberCount);
+        socket.to(roomId).emit(EVENTS.ROOM_MEMBER_COUNT, memberCount);
     }
 }
 
 export const unSubscribeRoom = async (roomId, userId, isHost) => {
 
-    const io = getIO();
-
     if (isHost) {
 
         // Notify listeners session ended
-        io.to(roomId).emit("room-ended");
+        io.to(roomId).emit(EVENTS.ROOM_END);
 
         // Disconnect all sockets in room
         const sockets = await io.in(roomId).fetchSockets();
@@ -78,5 +77,5 @@ export const unSubscribeRoom = async (roomId, userId, isHost) => {
 
     const memberCount = await getMembers(roomId);
 
-    io.to(roomId).emit("member-count-update", memberCount);
+    getIO().to(roomId).emit(EVENTS.ROOM_MEMBER_COUNT, memberCount);
 }

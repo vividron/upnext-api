@@ -1,5 +1,6 @@
 import Queue from "../models/Queue.js";
 import * as redisRoomService from "../redis/room.redis.js";
+import { EVENTS } from "../sockets/socket.events.js";
 import { getIO } from "../sockets/socket.gateway.js";
 import AppError from "../utils/appError.js";
 
@@ -21,8 +22,6 @@ export const getQueue = async (roomId) => {
 }
 
 export const addPlaylistToQueue = async (roomId, songs) => {
-
-    const io = getIO();
 
     // Maximum songs in the queue
     const MAX_QUEUE_SIZE = Number(process.env.MAX_QUEUE_SIZE) || 100;
@@ -57,12 +56,10 @@ export const addPlaylistToQueue = async (roomId, songs) => {
     // Update queue in the database
     await Queue.findOneAndUpdate({ roomId }, { $push: { songs: filteredSongs } }, { upsert: true });
 
-    io.to(roomId).emit("queue-songs-added", { songs: filteredSongs });
+    getIO().to(roomId).emit(EVENTS.QUEUE_ADD_SONGS, { songs: filteredSongs });
 }
 
 export const clearQueue = async (roomId) => {
-
-    const io = getIO();
 
     // delete queue from cache (sorted set) and from database
     await Promise.all([
@@ -70,5 +67,5 @@ export const clearQueue = async (roomId) => {
         Queue.findOneAndDelete({ roomId })
     ]);
 
-    io.to(roomId).emit("queue-cleared");
+    getIO().to(roomId).emit(EVENTS.QUEUE_CLEAR);
 }
