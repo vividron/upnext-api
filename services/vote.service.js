@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const voteScript = fs.readFileSync(path.resolve(__dirname, "../redis/scripts/vote.lua"), "utf8");
+const batchVoteScript = fs.readFileSync(path.resolve(__dirname, "../redis/scripts/batchVoteSongs.lua"), "utf8");
 
 // Vote song
 export const voteSongAtomic = async (roomId, userId, songId, vote) => {
@@ -26,6 +27,20 @@ export const voteSongAtomic = async (roomId, userId, songId, vote) => {
         delta: Number(result[0]),
         score: Number(result[1])
     }
+}
+
+// upvote matched songs 
+export const batchVoteSongs = async (roomId, userId, songIds)=> {
+
+    const result = await redis.eval(
+        batchVoteScript,
+        2,
+        roomKeys.queue(roomId),
+        roomKeys.userVotes(roomId, userId),
+        ...songIds
+    )
+
+    return result
 }
 
 // limit spam votes

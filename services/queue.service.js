@@ -4,6 +4,7 @@ import * as redisQueueService from "../redis/queue.redis.js";
 import { EVENTS } from "../sockets/socket.events.js";
 import { getIO } from "../sockets/socket.gateway.js";
 import AppError from "../utils/appError.js";
+import { batchVoteSongs } from "./vote.service.js";
 
 export const getQueue = async (roomId) => {
 
@@ -59,6 +60,16 @@ export const addPlaylistToQueue = async (roomId, songs) => {
     getIO().to(roomId).emit(EVENTS.QUEUE_ADD_SONGS, { songs: filteredSongs });
 }
 
+export const upvoteMatchedSongs = async (roomId, userId, songIds) => {
+
+    const results = await batchVoteSongs(roomId, userId, songIds);
+
+    if (results.length === 0) throw new AppError("Songs already upvoted", "SONG_UPVOTE_DUPLICATE", 400);
+
+    // broadcast votes
+    getIO().to(roomId).emit(EVENTS.QUEUE_SCORES_UPDATED, results);
+}
+
 export const clearQueue = async (roomId) => {
 
     // delete queue and user votes from redis and database
@@ -70,6 +81,17 @@ export const clearQueue = async (roomId) => {
     ]);
 
     getIO().to(roomId).emit(EVENTS.QUEUE_CLEAR);
+}
+
+// Filter songs which are present in the queue
+export const filterSongsInQueue = async (roomId, songIds) => {
+
+    const scores = await redisQueueService.getSongScores(roomId, songIds);
+
+    // Songs which are present in the queue will have score value.
+    const filteredSongIds = songIds.filter((_, index) => scores[index] !== null);
+
+    return filteredSongIds;
 }
 
 export const isSongInQueue = async (roomId, songId) => {

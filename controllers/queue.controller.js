@@ -16,6 +16,19 @@ export const addPlaylistToQueue = asyncWrapper(async (req, res) => {
     });
 });
 
+export const upvoteMatchedSongs = asyncWrapper(async (req, res) => {
+    const { roomId } = req.params;
+    const userId = req.userId;
+    const songIds = req.songIds;
+
+    await queueService.upvoteMatchedSongs(roomId, userId, songIds);
+
+    res.status(200).json({
+        success: true,
+        message: "Successfully upvoted songs"
+    });
+})
+
 export const clearQueue = asyncWrapper(async (req, res) => {
     const { roomId } = req.params;
 
