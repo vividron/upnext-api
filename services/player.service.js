@@ -1,6 +1,7 @@
 import * as spotifyService from "../services/spotify.service.js";
 import AppError from "../utils/appError.js";
-import { getPlayerState, getQueueMaxScoreSong, getSongMeta, removeSongFromQueue, setPlayerState } from "../redis/room.redis.js";
+import { getPlayerState, setPlayerState } from "../redis/room.redis.js";
+import { getQueueMaxScoreSong, getSongMeta, removeSongFromQueue } from "../redis/queue.redis.js";
 import { getIO } from "../sockets/socket.gateway.js";
 import { EVENTS } from "../sockets/socket.events.js";
 
