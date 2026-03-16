@@ -11,4 +11,6 @@ export const EVENTS = {
 
     QUEUE_ADD_SONGS: "queue:add-songs",
     QUEUE_CLEAR: "queue:clear",
+    QUEUE_VOTE_SONG: "queue:vote-song",
+    QUEUE_SCORES_UPDATED: "queue:scores-updated"
 };

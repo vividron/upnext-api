@@ -1,37 +1,37 @@
 import Queue from "../models/Queue.js";
-import * as redisRoomService from "../redis/room.redis.js";
+import Vote from "../models/Vote.js";
+import * as redisQueueService from "../redis/queue.redis.js";
 import { EVENTS } from "../sockets/socket.events.js";
 import { getIO } from "../sockets/socket.gateway.js";
 import AppError from "../utils/appError.js";
 
 export const getQueue = async (roomId) => {
 
-    const mixArray = await redisRoomService.getSortedQueue(roomId);
-    const queue = [];
+    const mixArray = await redisQueueService.getSortedQueue(roomId);
+
+    const tasks = [];
 
     for (let i = 0; i < mixArray.length; i += 2) {
-        // mixArray[i] = songId, mixArray[i+1] = score of that song
-        const songMetaData = await redisRoomService.getSongMeta(roomId, mixArray[i]);
-        queue.push({
-            ...songMetaData,
-            score: mixArray[i + 1]
-        });
+        const songId = mixArray[i];
+        const score = mixArray[i + 1];
+
+        tasks.push(redisQueueService.getSongMeta(roomId, songId).then(meta => ({ ...meta, score })));
     }
 
-    return queue;
+    return await Promise.all(tasks);
 }
 
 export const addPlaylistToQueue = async (roomId, songs) => {
 
     // Maximum songs in the queue
     const MAX_QUEUE_SIZE = Number(process.env.MAX_QUEUE_SIZE) || 100;
-    const songCount = await redisRoomService.getQueueSongCount(roomId);
+    const songCount = await redisQueueService.getQueueSongCount(roomId);
 
     if (songCount > MAX_QUEUE_SIZE) throw new AppError("Can't add song. Queue limit reached", "QUEUE_LIMIT_EXCEEDED", 400);
 
     // Check for songs already in the queue
     const songIds = songs.map((song) => song.songId);
-    const scores = await redisRoomService.getQueueScores(roomId, songIds);
+    const scores = await redisQueueService.getSongScores(roomId, songIds);
 
     // Keep only songs not already in the queue
     const filteredSongs = songs.filter((song, index) => scores[index] === null);
@@ -47,11 +47,11 @@ export const addPlaylistToQueue = async (roomId, songs) => {
         songsWithInitialScore.push(0, song.songId);
 
         // Save song meta data in hash
-        await redisRoomService.setSongMeta(roomId, song.songId, song)
+        await redisQueueService.setSongMeta(roomId, song.songId, song)
     }
 
     // Add songs with initial score 0 to sorted set
-    await redisRoomService.setQueue(roomId, songsWithInitialScore);
+    await redisQueueService.setQueue(roomId, songsWithInitialScore);
 
     // Update queue in the database
     await Queue.findOneAndUpdate({ roomId }, { $push: { songs: filteredSongs } }, { upsert: true });
@@ -61,11 +61,19 @@ export const addPlaylistToQueue = async (roomId, songs) => {
 
 export const clearQueue = async (roomId) => {
 
-    // delete queue from cache (sorted set) and from database
+    // delete queue and user votes from redis and database
     await Promise.all([
-        redisRoomService.clearQueue(roomId),
-        Queue.findOneAndDelete({ roomId })
+        redisQueueService.clearQueue(roomId),
+        Queue.findOneAndDelete({ roomId }),
+        redisQueueService.delRoomUsersVotes(roomId),
+        Vote.deleteMany({ roomId })
     ]);
 
     getIO().to(roomId).emit(EVENTS.QUEUE_CLEAR);
+}
+
+export const isSongInQueue = async (roomId, songId) => {
+    const score = await redisQueueService.getSongScores(roomId, songId);
+    if (score[0] === null) return false;
+    return true;
 }

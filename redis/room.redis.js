@@ -1,7 +1,7 @@
 import redis from "../config/redis.js";
 import { roomKeys } from "./keys.js";
 
-// host ID
+// Room meta data
 export const setRoomMeta = (roomId, meta) => redis.hset(roomKeys.roomMeta(roomId), { ...meta });
 export const getAllRoomMeta = (roomId) => redis.hgetall(roomKeys.roomMeta(roomId));
 export const getRoomMeta = (roomId, val) => redis.hget(roomKeys.roomMeta(roomId), val);
@@ -11,25 +11,11 @@ export const existsRoomMeta = (roomId) => redis.exists(roomKeys.roomMeta(roomId)
 export const setPlayerState = (roomId, playerState) => redis.set(roomKeys.playerState(roomId), JSON.stringify(playerState));
 export const getPlayerState = (roomId) => redis.get(roomKeys.playerState(roomId)).then((data) => data ? JSON.parse(data) : null);
 
-
 // Members
 export const addMember = (roomId, userId) => redis.sadd(roomKeys.members(roomId), userId);
 export const removeMember = (roomId, userId) => redis.srem(roomKeys.members(roomId), userId);
 export const getMembers = (roomId) => redis.scard(roomKeys.members(roomId));
 export const isMember = (roomId, userId) => redis.sismember(roomKeys.members(roomId), userId)
-
-// queue
-export const setQueue = (roomId, songIdsWithScore) => redis.zadd(roomKeys.queue(roomId), songIdsWithScore);
-export const getSortedQueue = (roomId) => redis.zrevrange(roomKeys.queue(roomId), 0, -1, "WITHSCORES"); // Score highest -> lowest
-export const getQueueMaxScoreSong = (roomId) => redis.zrevrange(roomKeys.queue(roomId), 0, 0, "WITHSCORES");
-export const removeSongFromQueue = (roomId, songId) => redis.zrem(roomKeys.queue(roomId), songId);
-export const getQueueScores = (roomId, songIds) => redis.zmscore(roomKeys.queue(roomId), songIds);
-export const getQueueSongCount = (roomId) => redis.zcard(roomKeys.queue(roomId));
-export const clearQueue = (roomId) => redis.del(roomKeys.queue(roomId));
-
-// song meta data
-export const setSongMeta = (roomId, songId, songMetaData) => redis.hset(roomKeys.songMeta(roomId, songId), songMetaData);
-export const getSongMeta = (roomId, songId) => redis.hgetall(roomKeys.songMeta(roomId, songId));
 
 // User reconnect
 export const setGraceTime = (roomId, userId, expiryTime) => redis.setex(roomKeys.graceTime(roomId, userId), expiryTime, true);
@@ -68,7 +54,6 @@ export const addRoomExpiry = async (roomId) => {
 }
 
 export const removeRoomExpiry = async (roomId) => {
-    const TTL = process.env.TTL || 30;
     try {
         const ttl = await redis.ttl(roomKeys.roomMeta(roomId));
 

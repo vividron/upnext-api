@@ -3,9 +3,11 @@ import Queue from "../models/Queue.js"
 import { getQueue } from "./queue.service.js";
 import * as redisRoomService from "../redis/room.redis.js"
 import * as redisSocketService from "../redis/socket.redis.js"
+import * as redisQueueService from "../redis/queue.redis.js";
 import AppError from "../utils/appError.js";
 import { getIO } from "../sockets/socket.gateway.js";
 import { EVENTS } from "../sockets/socket.events.js";
+import Vote from "../models/Vote.js";
 
 export const getRoomState = async (roomId, userId) => {
 
@@ -14,22 +16,29 @@ export const getRoomState = async (roomId, userId) => {
 
     if (!exists) return null;
 
-    const [meta, memberCount, queue, playerState] = await Promise.all([
+    const [meta, memberCount, playerState, userVotes, queue] = await Promise.all([
         redisRoomService.getAllRoomMeta(roomId),
         redisRoomService.getMembers(roomId),
-        getQueue(roomId),
-        redisRoomService.getPlayerState(roomId)
+        redisRoomService.getPlayerState(roomId),
+        redisQueueService.getUserVotes(roomId, userId),
+        getQueue(roomId)
     ]);
 
     const isHost = meta.hostId === userId;
 
-    return {
+    const roomState = {
         roomTitle: meta.title,
         isHost,
         memberCount,
-        queue,
-        playerState
+        playerState,
+        queue
+    };
+
+    if (!isHost) {
+        roomState.userVotes = userVotes;
     }
+
+    return roomState;
 }
 
 export const addUsertoRoom = async (roomId, userId) => {
@@ -69,7 +78,7 @@ export const addUsertoRoom = async (roomId, userId) => {
                     songs.push(song.score, song.songId);
 
                     // hash song meta data
-                    await redisRoomService.setSongMeta(roomId, song.songId, {
+                    await redisQueueService.setSongMeta(roomId, song.songId, {
                         songId: song.songId,
                         artists: song.artists,
                         coverImage: song.coverImage,
@@ -78,7 +87,7 @@ export const addUsertoRoom = async (roomId, userId) => {
                     });
                 }
                 // Save queue state to redis
-                await redisRoomService.setQueue(roomId, songs);
+                await redisQueueService.setQueue(roomId, songs);
             }
 
             // Add room state to redis
@@ -104,6 +113,16 @@ export const addUsertoRoom = async (roomId, userId) => {
         }
     }
 
+    // Get user votes from database
+    const userVotes = await Vote.findOne({ userId });
+
+    if (!userVotes) roomState.userVotes = [];
+    else {
+        roomState.userVotes = userVotes.votes;
+        // Save user votes to redis
+        await redisQueueService.setUserVotes(roomId, userId, userVotes.votes);
+    }
+
     await redisRoomService.addMember(roomId, userId);
     roomState.memberCount++;
 
@@ -113,9 +132,8 @@ export const addUsertoRoom = async (roomId, userId) => {
 
 export const resolveRoomRole = async (roomId, userId) => {
 
-    // Check if room exist
+    // Check if room exist in redis session
     const exists = await redisRoomService.existsRoomMeta(roomId);
-
     if (!exists) throw new AppError("Room is not active", "ROOM_INACTIVE", 400);
 
     const hostId = await redisRoomService.getRoomMeta(roomId, "hostId");
@@ -167,9 +185,10 @@ export const removeUserFromRoom = async (roomId, userId) => {
     // If user is host save current room state in DB
     if (isHost) {
         // Get room state from Redis
-        const [playerState, queue] = await Promise.all([
+        const [playerState, queue, roomUsersVotes] = await Promise.all([
             redisRoomService.getPlayerState(roomId),
-            getQueue(roomId)
+            getQueue(roomId),
+            redisQueueService.getRoomUsersVotes(roomId)
         ]);
 
         //if player was playing update position. current position = position of seek bar when started playing + time passed
@@ -186,7 +205,23 @@ export const removeUserFromRoom = async (roomId, userId) => {
             isActive: false
         });
 
+        // save queue snapshot
         await Queue.findOneAndUpdate({ roomId }, { $set: { songs: queue } });
+
+        // save votes snapshot. update votes in database. if vote doc not present for a user create one.
+        await Vote.bulkWrite(roomUsersVotes.map((item) => ({
+            updateOne: {
+                filter: {
+                    roomId: item.roomId,
+                    userId: item.userId
+                },
+                update: {
+                    $set: { votes: item.votes }
+                },
+                upsert: true
+            }
+        }))
+        );
 
         // Delete all room cache
         await redisRoomService.clearRoomKeys(roomId);
@@ -230,7 +265,7 @@ export const removeUserFromRoom = async (roomId, userId) => {
         }
     }
 
-    const memberCount = await getMembers(roomId);
+    const memberCount = await redisRoomService.getMembers(roomId);
 
     io.to(roomId).emit(EVENTS.ROOM_MEMBER_COUNT, memberCount);
 }

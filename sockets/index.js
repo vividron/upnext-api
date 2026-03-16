@@ -1,5 +1,6 @@
 import { socketAuth } from "./middleware/auth.socket.js";
 import registerRoomSocket from "./room.socket.js";
+import registerQueueSocket from "./queue.socket.js";
 import { setIO } from "./socket.gateway.js";
 import * as redisSocketService from "../redis/socket.redis.js";
 import { setLastActivity, startPresenceCheckWorker, stopPresenceCheckWorker } from "./presenceChecker.js";
@@ -22,6 +23,7 @@ export default function initSockets(io) {
             startPresenceCheckWorker()
 
             registerRoomSocket(socket);
+            registerQueueSocket(socket);
 
             socket.on("disconnect", async () => {
                 try {

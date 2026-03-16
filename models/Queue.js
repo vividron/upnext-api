@@ -32,13 +32,7 @@ const queueSchema = new mongoose.Schema({
                 type: Number,
                 default: 0
             },
-
-            voters: [
-                {
-                    userId: mongoose.Schema.Types.ObjectId,
-                    vote: Number // +1 or -1
-                }
-            ]
+            _id: false
         }
     ],
 }, {
