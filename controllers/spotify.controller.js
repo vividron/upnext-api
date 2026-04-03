@@ -3,8 +3,8 @@ import * as spotifyService from "../services/spotify.service.js"
 
 export const getUserPlaylists = asyncWrapper(async (req, res) => {
 
-    const limit = Number(req.query.limit) || 10;
-    const offset = Number(req.query.offset) || 0;
+    const limit = Number(req.body.limit) || 10;
+    const offset = Number(req.body.offset) || 0;
 
     const playlists = await spotifyService.getUserPlaylists(req.accessToken, limit, offset);
 
@@ -16,7 +16,7 @@ export const getUserPlaylists = asyncWrapper(async (req, res) => {
 
 export const getPlaylistItems = asyncWrapper(async (req, res) => {
 
-    const limit = Number(req.query.limit) || 10;
+    const limit = Number(req.body.limit) || 10;
     const { playlistId } = req.params;
 
     const items = await spotifyService.getPlaylistItems(req.accessToken, playlistId, limit);
