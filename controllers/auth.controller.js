@@ -125,4 +125,17 @@ export const handleSpotifyCallback = async (req, res) => {
     }
 };
 
+export const getCurrentUser = asyncWrapper(async (req, res) => {
+    const userId = req.userId;
 
+    const user = await User.findById(userId).select("-refreshToken -accessToken -tokenExpiresAt");
+
+    if (!user) {
+        throw new AppError("User not found", "USER_NOT_FOUND", 404);
+    }
+
+    res.status(200).json({
+        success: true,
+        user
+    });
+});
