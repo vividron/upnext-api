@@ -9,6 +9,12 @@ import { getIO } from "../sockets/socket.gateway.js";
 import { EVENTS } from "../sockets/socket.events.js";
 import Vote from "../models/Vote.js";
 
+export const isUserJoined = async (roomId, userId) => {
+    // Check if user joined the room
+    const isJoined = await redisRoomService.isMember(roomId, userId);
+    return isJoined;
+}
+
 export const getRoomState = async (roomId, userId) => {
 
     // Check if the room meta exist.
@@ -44,7 +50,7 @@ export const getRoomState = async (roomId, userId) => {
 export const addUsertoRoom = async (roomId, userId) => {
 
     // Check if user already present
-    const isUserPresent = await redisRoomService.isMember(roomId, userId);
+    const isUserPresent = await isUserJoined(roomId, userId);
     if (isUserPresent) {
         throw new AppError("User already joined the room", "USER_ALREADY_PRESENT", 400);
     }
@@ -54,7 +60,14 @@ export const addUsertoRoom = async (roomId, userId) => {
     // If roomState is null then room is inactive. if user is host start the session.
     if (!roomState) {
 
-        const room = await Room.findOne({ host: userId });
+        // Check if any room is already active. If active room exist then user can't join any other room until the active session is ended.
+        const activeRooms = await Room.find({ host: userId, isActive: true });
+        console.log("activeRooms", activeRooms);
+        if (activeRooms.length) {
+            throw new AppError("You have an active room. You can't join another room until your active session is ended", "OTHER_ROOM_ACTIVE", 400);
+        }
+
+        const room = await Room.findOne({ _id: roomId, host: userId });
 
         // check if room exist
         if (!room) throw new AppError("Room not found", "ROOM_NOT_FOUND", 404);
@@ -96,9 +109,6 @@ export const addUsertoRoom = async (roomId, userId) => {
                 redisRoomService.setPlayerState(roomId, room.playerState),
                 redisRoomService.addMember(roomId, userId),
             ]);
-
-            // Add expiry to room state. If host don't subscribe the room then room cache will be removed automatically.
-            await redisRoomService.addRoomExpiry(roomId);
 
             return {
                 title: room.title,
@@ -145,16 +155,8 @@ export const resolveRoomRole = async (roomId, userId) => {
 export const subscribeRoom = async (roomId, userId, socket) => {
 
     // Check if the user has joined the room
-    const isUserPresent = await redisRoomService.isMember(roomId, userId);
+    const isUserPresent = await isUserJoined(roomId, userId);
     if (!isUserPresent) throw new AppError("User did not join the room", "USER_NOT_FOUND");
-
-    const isHost = await resolveRoomRole(roomId, userId);
-
-    // Remove room expiry if host. this helps to verify room status. Ex - host joined but never subscribed => room cache removed
-    if (isHost) {
-        const isRemoved = await redisRoomService.removeRoomExpiry(roomId);
-        if (!isRemoved) throw new AppError("User did not join the room", "USER_NOT_FOUND");
-    }
 
     // Add socket
     await Promise.all([
@@ -177,7 +179,7 @@ export const removeUserFromRoom = async (roomId, userId) => {
     const io = getIO();
 
     // Check if user is present
-    const isUserPresent = await redisRoomService.isMember(roomId, userId);
+    const isUserPresent = await isUserJoined(roomId, userId);
     if (!isUserPresent) throw new AppError("User not present in the room", "USER_NOT_FOUND", 404);
 
     const isHost = await resolveRoomRole(roomId, userId);

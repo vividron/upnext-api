@@ -39,38 +39,4 @@ export const clearRoomKeys = async (roomId) => {
     }
 }
 
-export const addRoomExpiry = async (roomId) => {
-    const TTL = process.env.TTL || 30;
-    try {
-        await Promise.all([
-            redis.expire(roomKeys.queue(roomId), TTL),
-            redis.expire(roomKeys.roomMeta(roomId), TTL),
-            redis.expire(roomKeys.playerState(roomId), TTL),
-            redis.expire(roomKeys.members(roomId), TTL)
-        ]);
-    } catch (error) {
-        throw error
-    }
-}
-
-export const removeRoomExpiry = async (roomId) => {
-    try {
-        const ttl = await redis.ttl(roomKeys.roomMeta(roomId));
-
-        // host should subscribe within 20s. avoiding expiry and persist race condition
-        if (ttl < 10) return false;
-
-        await Promise.all([
-            redis.persist(roomKeys.queue(roomId)),
-            redis.persist(roomKeys.roomMeta(roomId)),
-            redis.persist(roomKeys.playerState(roomId)),
-            redis.persist(roomKeys.members(roomId))
-        ]);
-
-        return true;
-    } catch (error) {
-        throw error
-    }
-}
-
 
