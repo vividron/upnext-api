@@ -15,6 +15,11 @@ const scopes = [
     "playlist-read-collaborative"
 ];
 
+const clearCookies = (res) => {
+    res.clearCookie("state");
+    res.clearCookie("code_verifier");
+}
+
 export const redirectToSpotifyAuth = asyncWrapper(async (req, res) => {
     const state = generateState();
     const codeVerifier = generateCodeVerifier();
@@ -31,69 +36,93 @@ export const redirectToSpotifyAuth = asyncWrapper(async (req, res) => {
     res.redirect(url.toString());
 });
 
-export const handleSpotifyCallback = asyncWrapper(async (req, res) => {
-    const { code, state } = req.query;
+export const handleSpotifyCallback = async (req, res) => {
+    try {
+        const { code, state } = req.query;
 
-    const storedState = req.cookies?.state;
-    const codeVerifier = req.cookies?.code_verifier;
+        const storedState = req.cookies?.state;
+        const codeVerifier = req.cookies?.code_verifier;
 
-    if (state !== storedState || !codeVerifier) {
-        throw new AppError("Invalid OAuth state", "INVALID_OAUTH_STATE", 400);
-    }
+        if (state !== storedState || !codeVerifier) {
+            // clear cookies
+            clearCookies(res);
 
-    const tokens = await spotify.validateAuthorizationCode(code, codeVerifier);
+            res.redirect(`${process.env.FRONTEND_URL}/auth/callback?error=invalid_state`);
+            return;
+        }
 
-    const accessToken = tokens.accessToken();
+        const tokens = await spotify.validateAuthorizationCode(code, codeVerifier);
 
-    const { data: spotifyUser } = await axios.get(
-        "https://api.spotify.com/v1/me",
-        {
-            headers: {
-                Authorization: `Bearer ${accessToken}`
+        const accessToken = tokens.accessToken();
+
+        const { data: spotifyUser } = await axios.get(
+            "https://api.spotify.com/v1/me",
+            {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
+            }
+        );
+
+        const spotifyId = spotifyUser.id;
+        const isPremium = spotifyUser.product === "premium";
+
+        if (!spotifyId) {
+            // clear cookies
+            clearCookies(res);
+
+            res.redirect(`${process.env.FRONTEND_URL}/auth/callback?error=invalid_spotify_response`);
+            return;
+        }
+
+        // Find or create user
+        let user = await User.findOne({ spotifyId });
+
+        if (!user) {
+            user = await User.create({
+                spotifyId,
+                username: spotifyUser.display_name,
+                email: spotifyUser.email,
+                profileImage: spotifyUser.images?.[0]?.url,
+                isPremium,
+                accessToken,
+                refreshToken: tokens.refreshToken(),
+                tokenExpiresAt: tokens.accessTokenExpiresAt()
+            });
+        } else {
+            user.username = spotifyUser.display_name;
+            user.email = spotifyUser.email;
+            user.profileImage = spotifyUser.images?.[0]?.url;
+            user.isPremium = isPremium;
+            user.accessToken = accessToken;
+            user.refreshToken = tokens.refreshToken(),
+                user.tokenExpiresAt = tokens.accessTokenExpiresAt();
+            await user.save();
+        }
+
+        // Issue JWT
+        const token = jwt.sign(
+            { userId: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        clearCookies(res);
+        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+    } catch (error) {
+
+        // clear cookies
+        clearCookies(res);
+
+        if (error.response) {
+            const { status, data } = error.response;
+            if (status === 403 && typeof data === "string" && data.includes("not registered")) {
+                return res.redirect(`${process.env.FRONTEND_URL}/auth/callback?error=unauthorized_user`);
             }
         }
-    );
 
-    const spotifyId = spotifyUser.id;
-    const isPremium = spotifyUser.product === "premium";
-
-    if (!spotifyId) {
-        throw new AppError("Missing spotify user ID", "INVALID_SPOTIFY_ID", 400);
+        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?error=authentication_failed`);
     }
+};
 
-    // Find or create user
-    let user = await User.findOne({ spotifyId });
 
-    if (!user) {
-        user = await User.create({
-            spotifyId,
-            username: spotifyUser.display_name,
-            email: spotifyUser.email,
-            profileImage: spotifyUser.images?.[0]?.url,
-            isPremium,
-            accessToken,
-            refreshToken: tokens.refreshToken(),
-            tokenExpiresAt: tokens.accessTokenExpiresAt()
-        });
-    } else {
-        user.username = spotifyUser.display_name;
-        user.email = spotifyUser.email;
-        user.profileImage = spotifyUser.images?.[0]?.url;
-        user.isPremium = isPremium;
-        user.accessToken = accessToken;
-        user.refreshToken = tokens.refreshToken(),
-            user.tokenExpiresAt = tokens.accessTokenExpiresAt();
-        await user.save();
-    }
-
-    // Issue JWT
-    const token = jwt.sign(
-        { userId: user._id },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
-    );
-
-    res.clearCookie("state");
-    res.clearCookie("code_verifier");
-    res.redirect(`${process.env.FRONTEND_URL}/auth-success?token=${token}`);
-})
