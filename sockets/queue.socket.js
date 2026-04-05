@@ -9,18 +9,6 @@ const registerQueueSocket = (socket) => {
         try {
             const userId = socket.userId;
 
-            // Validate voter. restrict host from voting the song
-            const isHost = await resolveRoomRole(roomId, userId);
-            if(isHost) {
-                return ack({
-                    ok: false,
-                    error: {
-                        code: "HOST_VOTE_FORBIDDEN",
-                        message: "Host cannot vote song"
-                    }
-                });
-            }
-
             // vote limiter
             const allowed = await voteLimiter(roomId, userId);
             if (!allowed) {
@@ -46,7 +34,7 @@ const registerQueueSocket = (socket) => {
             }
 
             // validate vote
-            if (![-1, 1].includes(vote)) {
+            if (vote !== -1 && vote !== 1) {
                 return ack({
                     ok: false,
                     error: {
