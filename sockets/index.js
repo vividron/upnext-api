@@ -5,6 +5,7 @@ import { setIO } from "./socket.gateway.js";
 import * as redisSocketService from "../redis/socket.redis.js";
 import { setLastActivity, startPresenceCheckWorker, stopPresenceCheckWorker } from "./presenceChecker.js";
 import { setGraceTime, setReconnectToRoomId } from "../redis/room.redis.js";
+import registerPlayerSocket from "./player.socket.js";
 
 export default function initSockets(io) {
 
@@ -24,6 +25,7 @@ export default function initSockets(io) {
 
             registerRoomSocket(socket);
             registerQueueSocket(socket);
+            registerPlayerSocket(socket);
 
             socket.on("disconnect", async () => {
                 try {
@@ -43,8 +45,8 @@ export default function initSockets(io) {
                         }
                         return
                     };
-
-                     if (isNoSocketConnections) {
+                    
+                    if (isNoSocketConnections) {
                         // last activity
                         setLastActivity(true);
                         await redisSocketService.delSocketCount()

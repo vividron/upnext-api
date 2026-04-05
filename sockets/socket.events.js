@@ -3,7 +3,7 @@ export const EVENTS = {
     ROOM_MEMBER_COUNT: "room:member-count",
     ROOM_END: "room:end",
 
-    PLAYER_STATE: "player:state",
+    PLAYER_SYNC_FAILED: "player:sync-failed",
     PLAYER_PAUSE: "player:pause",
     PLAYER_RESUME: "player:resume",
     PLAYER_NEXT: "player:next",
