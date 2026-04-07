@@ -5,7 +5,6 @@ import { setIO } from "./socket.gateway.js";
 import * as redisSocketService from "../redis/socket.redis.js";
 import { setLastActivity, startPresenceCheckWorker, stopPresenceCheckWorker } from "./presenceChecker.js";
 import { setGraceTime, setReconnectToRoomId } from "../redis/room.redis.js";
-import registerPlayerSocket from "./player.socket.js";
 
 export default function initSockets(io) {
 
@@ -16,8 +15,6 @@ export default function initSockets(io) {
 
     io.on("connection", async (socket) => {
         try {
-            console.log("Socket connected:", socket.id);
-
             // Increment socket count.
             await redisSocketService.increSocketCount();
             setLastActivity(false);
@@ -25,7 +22,6 @@ export default function initSockets(io) {
 
             registerRoomSocket(socket);
             registerQueueSocket(socket);
-            registerPlayerSocket(socket);
 
             socket.on("disconnect", async () => {
                 try {
