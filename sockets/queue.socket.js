@@ -57,13 +57,11 @@ const registerQueueSocket = (socket) => {
             }
 
             // broadcast vote
-            getIO().to(roomId).emit(EVENTS.QUEUE_SCORES_UPDATED, [{ songId, score: Number(score) }]);
+            getIO().to(roomId).emit(EVENTS.QUEUE_SCORES_UPDATED, [[songId, Number(score)]]);
 
             return ack({ ok: true });
 
         } catch (error) {
-
-            console.error("Vote error:", error);
 
             return ack({
                 ok: false,
