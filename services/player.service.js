@@ -35,14 +35,14 @@ export const resumePlayer = async (accessToken, roomId) => {
 }
 
 // pause player
-export const pausePlayer = async (accessToken, roomId) => {
+export const pausePlayer = async (accessToken, roomId, isStateSync) => {
 
     // Get player state
     const playerState = await getPlayerState(roomId);
 
     if (!playerState.isPlaying) throw new AppError("Song already paused", "INVALID_COMMAND", 400);
 
-    await spotifyService.pausePlayer(accessToken);
+    if (!isStateSync) await spotifyService.pausePlayer(accessToken);
 
     getIO().to(roomId).emit(EVENTS.PLAYER_PAUSE);
 
@@ -59,11 +59,16 @@ export const pausePlayer = async (accessToken, roomId) => {
 // play next song from queue
 export const playNext = async (accessToken, roomId) => {
 
-    // Get top song from the queue. [songId, score]
+    // Get top song from the queue. returns in format [songId, score]
     const maxScoreSong = await getQueueMaxScoreSong(roomId);
 
     // Check if queue is empty
-    if(maxScoreSong.length === 0) throw new AppError("Can't perform this action. Queue is empty", "EMPTY_QUEUE", 403);
+    if (maxScoreSong.length === 0) {
+        // update player song to null
+        await setPlayerState(roomId, { song: null, position: 0, isPlaying: false, startedAt: null });
+        getIO().to(roomId).emit(EVENTS.PLAYER_NEXT, { songId: null });
+        return;
+    }
 
     const songId = maxScoreSong[0];
 

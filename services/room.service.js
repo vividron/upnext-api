@@ -62,17 +62,12 @@ export const addUsertoRoom = async (roomId, userId) => {
 
         // Check if any room is already active. If active room exist then user can't join any other room until the active session is ended.
         const activeRooms = await Room.find({ host: userId, isActive: true });
-        console.log("activeRooms", activeRooms);
         if (activeRooms.length) {
             throw new AppError("You have an active room. You can't join another room until your active session is ended", "OTHER_ROOM_ACTIVE", 400);
         }
 
         const room = await Room.findOne({ _id: roomId, host: userId });
-
-        // check if room exist
-        if (!room) throw new AppError("Room not found", "ROOM_NOT_FOUND", 404);
-
-        const isHost = room.host.toString() === userId;
+        const isHost = (room?.host.toString() ?? "") === userId;
 
         // Check if user is host
         if (isHost) {

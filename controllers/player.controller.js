@@ -29,8 +29,9 @@ export const resumePlayer = asyncWrapper(async (req, res) => {
 export const pausePlayer = asyncWrapper(async (req, res) => {
 
     const { roomId } = req.params
+    const { isStateSync } = req.body;
 
-    await playerService.pausePlayer(req.accessToken, roomId);
+    await playerService.pausePlayer(req.accessToken, roomId, isStateSync);
 
     res.status(200).json({
         success: true,
@@ -55,7 +56,7 @@ export const playNext = asyncWrapper(async (req, res) => {
 export const playPrevious = asyncWrapper(async (req, res) => {
 
     await playerService.playPrevious(req.accessToken);
-    
+
     res.status(200).json({
         success: true,
         message: "Previous song is now playing"
