@@ -54,9 +54,10 @@ export const getPlaylistItems = async (accessToken, playlistId, limit = 50) => {
 
     } catch (error) {
         const err = error.response?.data?.error ?? null;
-        throw new AppError(err.message || "Failed to fetch playlist items", "SPOTIFY_API", err?.status, err);
+        throw new AppError(err?.message || "Failed to fetch playlist items", "SPOTIFY_API", err?.status, err);
     }
 };
+
 
 // Get playback state
 export const getPlayBackState = async (accessToken) => {
@@ -76,6 +77,7 @@ export const getPlayBackState = async (accessToken) => {
                 type: data.device?.type || null,
                 volume: data.device?.volume_percent ?? null
             },
+            currentSongId: data.item?.id ?? null,
             isPlaying: data.is_playing ?? false,
             progress: data.progress_ms ?? 0,
             startedAt: data.timestamp ?? null
@@ -83,7 +85,7 @@ export const getPlayBackState = async (accessToken) => {
 
     } catch (error) {
         const err = error.response?.data?.error ?? null;
-        throw new AppError(err.message || "Failed to fetch playback state", "SPOTIFY_API", err?.status, err);
+        throw new AppError(err?.message || "Failed to fetch playback state", "SPOTIFY_API", err?.status, err);
     }
 }
 
