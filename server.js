@@ -19,6 +19,7 @@ const io = new Server(server, {
   cors: {
     origin: process.env.FRONTEND_URL || "http://localhost:8000",
     credentials: true,
+    maxAge: 86400
   },
 });
 
@@ -31,7 +32,8 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || "http://localhost:8000",
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
+  credentials: true,
+  maxAge: 86400
 }));
 
 
