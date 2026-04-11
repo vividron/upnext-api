@@ -12,7 +12,6 @@ export const startPresenceCheckWorker = () => {
   if (interval) return;
 
   interval = setInterval(async () => {
-    console.log("worker runnign" + Date.now());
 
     try {
       const keys = await redis.keys("reconnect:*");

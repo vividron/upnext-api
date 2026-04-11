@@ -10,7 +10,6 @@ export const batchVoteLimiter = async (req, res, next) => {
         const userId = req.userId;
 
         const batchVoteCount = await checkBatchVoteLimit(roomId, userId);
-        console.log("batch vote count:", batchVoteCount);
 
         if (!batchVoteCount) {
             await setBatchVoteLimit(roomId, userId);

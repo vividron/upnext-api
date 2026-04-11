@@ -24,7 +24,6 @@ const registerRoomSocket = (socket) => {
 
             ack({ ok: true, message: `Subscribed to room:${roomId} successfully`});
         } catch (error) {
-            console.error("Failed to subscribe room:", error)
             ack({
                 ok: false, error: {
                     code: error.code || "SUBSCRIBE_ROOM",
