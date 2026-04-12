@@ -24,20 +24,20 @@ This repository contains the backend service responsible for:
 
 ## 🔥 Features
 
-### Authentication
+### 🔐 Authentication
 - Spotify OAuth login flow
 - PKCE-based authorization code exchange
 - JWT issued after successful Spotify login
 - Access token refresh handled automatically
 
-### Rooms
+### 👥 Rooms
 - Create a room
 - Join / leave a room
 - Activate a room when the host joins
 - End the room when the host leaves
 - Persist room state, queue, and votes back to MongoDB
 
-### Queue & Voting
+### 📊 Queue & Voting
 - No modification of Spotify’s actual queue
 - Backend controls playback using a **virtual queue** based on redis sorted sets
 - Adding song/playlists to the room queue
@@ -57,7 +57,7 @@ This repository contains the backend service responsible for:
   - Next Track
   - Device switching
 
-### Playback Sync
+### 🔄 Playback Sync
 - Play current track
 - Pause / resume playback
 - Play next track from the virtual queue
@@ -67,7 +67,7 @@ This repository contains the backend service responsible for:
     - Handles: Pauses, Track skips, Device disconnects
     - Displays sync errors when needed
 
-### Presence & Reliability
+### 🟢 Presence & Reliability
 - Track room members and active sockets
 - Handle reconnect grace periods
 - Auto-remove inactive users
