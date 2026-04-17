@@ -7,6 +7,20 @@ Backend service for **UpNext**, a real-time social music voting app where people
 - Live App: https://upnext-music.vercel.app/
 - Frontend Repository: https://github.com/vividron/upnext-frontend
 
+## 📑 Table of Contents
+
+- [🚀 Overview](#-overview)
+- [🔥 Features](#-features)
+- [🛠️ Tech Stack](#-tech-stack)
+- [⚙️ System Architecture Highlights](#-system-architecture-highlights)
+- [📡 Socket.IO Events](#-socketio-events)
+- [🌐 API Endpoints](#-api-endpoints)
+- [🚀 Installation Guide](#-installation-guide)
+- [📁 Project Structure](#project-structure)
+- [🧠 Challenges & Solutions](#challenges--solutions)
+- [🤝 Contributing](#contributing)
+- [📄 License](#license)
+
 ## 🚀 Overview
 
 This repository contains the backend service responsible for:
@@ -96,7 +110,7 @@ This repository contains the backend service responsible for:
 - Ensures consistent vote updates under heavy concurrency
 
 ### 🧠 Presence Tracking
-- Tracks active users in rooms
+- Tracks active users in rooms using presence check worker
 - Handles:
   - Disconnects
   - Network failures
@@ -110,9 +124,8 @@ This repository contains the backend service responsible for:
 - Host is the authority
 - If host disconnects → room auto ends
 
----
 
-## 🔐 Authentication
+### 🔐 Authentication
 
 - Uses **Spotify OAuth 2.0 (Authorization Code Flow with PKCE)**
 - Only **Spotify Premium users** can create rooms
@@ -328,6 +341,68 @@ http://localhost:8000/api/auth/spotify
 If everything is configured correctly:
 - Spotify login page should open
 - You should receive a JWT after successful login
+
+---
+
+## Project Structure
+
+```
+upnext-api/
+├── server.js
+├── config/
+│   ├── axios.js
+│   ├── db.js
+│   ├── oauth.js
+│   └── redis.js
+├── controllers/
+│   ├── auth.controller.js
+│   ├── player.controller.js
+│   ├── queue.controller.js
+│   ├── room.controller.js
+│   └── spotify.controller.js
+├── middleware/
+│   ├── auth.middleware.js
+│   ├── error.middleware.js
+│   ├── queue.middleware.js
+│   └── room.middleware.js
+├── models/
+│   ├── Queue.js
+│   ├── Room.js
+│   ├── User.js
+│   └── Vote.js
+├── redis/
+│   ├── keys.js
+│   ├── queue.redis.js
+│   ├── room.redis.js
+│   ├── socket.redis.js
+│   └── scripts/
+│       ├── batchVoteSongs.lua
+│       └── vote.lua
+├── routes/
+│   ├── auth.route.js
+│   ├── player.route.js
+│   ├── queue.route.js
+│   ├── room.route.js
+│   └── spotify.route.js
+├── services/
+│   ├── player.service.js
+│   ├── queue.service.js
+│   ├── room.service.js
+│   ├── spotify.service.js
+│   └── vote.service.js
+├── sockets/
+│   ├── index.js
+│   ├── presenceChecker.js
+│   ├── queue.socket.js
+│   ├── room.socket.js
+│   ├── socket.events.js
+│   ├── socket.gateway.js
+│   └── middleware/
+│       └── auth.socket.js
+└── utils/
+    ├── appError.js
+    └── asyncWrapper.js
+```
 
 ---
 
